@@ -1,0 +1,29 @@
+# 專案看板 (Kanban)
+
+## 待辦事項 (Backlog / Todo)
+- [ ] 多語系國際化擴充 (i18n)
+
+## 進行中 (In Progress)
+- [ ] GitHub 儲存庫初始化、GitHub Pages 部署工作流配置與程式碼推送 (https://github.com/Mcslg/writing-assistance.git)
+
+## 待測試 (Pending Test)
+- [ ] 籠統字深入剖析按鈕條件嚴格限制 (僅在 isGeneralWord 為 true 時顯示，一般詞彙搭配不顯示)
+- [ ] 批改引擎生成重構 (先生成 improvedText 消除 Diff 落差，按單字/結構粒度嚴格提取 wordSuggestions)
+- [ ] 評分儀表板新增各類考試換算估分收合欄位 (學測 20 分制、IELTS、TOEFL、TOEIC 預估與評分規準說明)
+- [ ] 字級/片語級 (Word/Phrase-level) 精準標記引擎 (原文順序切分、單字定位與替換)
+- [ ] 5 大修改分類客製化 UI 系統 (文法紅波浪、拼字橙鋸齒、詞彙紫點線、簡潔藍虛線、語氣半透明實線底線與專屬圖標)
+- [ ] 籠統字深入剖析非同步按需拆解 (詞義精確說明、場景推薦詞與 CEFR 級別、按需發送請求避免初次延遲)
+- [ ] 專屬客製化浮動卡片操作 (一鍵採納單字、移除贅字快捷按鈕、可選替換詞 Chips、追問助教)
+- [ ] 頁面版面精簡與摺疊清單優化 (將重複的逐句列表改為預設收合的摺疊清單，畫面聚焦文字區與評分儀表板)
+- [ ] 文字區域浮動視窗建議 (互動式標記文字區、點擊/Hover 彈出修改卡片、一鍵採納單句/全部修改、隨時切換純文字編輯)
+- [ ] 專案初始化與環境設定 (Vite + React + TypeScript + Tailwind CSS + Lucide Icons)
+- [ ] 專案實施計畫與需求規格（純前端 Vite+React、通用英語學習、自填 API Key、Gemini 3.5 Flash / Lite / 3.1 Pro、全文批改+互動對話、IndexedDB 儲存）
+- [ ] API Key 管理與設定模組 (LocalStorage 儲存、測試連線驗證有效性、一鍵清除隱私資料、模型切換支援 Gemini 3.5 Flash / Lite / 3.1 Pro 及自訂模型)
+- [ ] Gemini 結構化批改引擎 (繁體中文詳解、JSON Schema 規範、CEFR 評級、多維度打分、優缺點分析)
+- [ ] 原文與潤飾對比檢視 (Diff 比較、雙欄並排與行內標記切換、逐句高亮對照)
+- [ ] 逐句深入剖析與學習卡片 (錯誤分類標籤、修改原因說明、其他地道替換說法、篩選器)
+- [ ] 互動式 AI 助教對話抽屜 (作文上下文與聚焦句子傳遞、快捷問題按鈕、自由追問)
+- [ ] 本地歷史紀錄與匯出功能 (IndexedDB 儲存與即時讀取、Markdown 完整報告匯出、單筆刪除與清空)
+
+## 已完成 (Done)
+- [x] 建立初始看板 (`kanban.md`)
