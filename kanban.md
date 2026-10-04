@@ -4,9 +4,10 @@
 - [ ] 多語系國際化擴充 (i18n)
 
 ## 進行中 (In Progress)
-- [ ] GitHub 儲存庫初始化、GitHub Pages 部署工作流配置與程式碼推送 (https://github.com/Mcslg/writing-assistance.git)
+- [ ] GitHub Pages 首次線上部署驗收 (等待 Actions 運行並驗證網址可連線)
 
 ## 待測試 (Pending Test)
+- [ ] GitHub 儲存庫初始化、GitHub Pages 部署工作流配置與程式碼推送 (https://github.com/Mcslg/writing-assistance.git)
 - [ ] 籠統字深入剖析按鈕條件嚴格限制 (僅在 isGeneralWord 為 true 時顯示，一般詞彙搭配不顯示)
 - [ ] 批改引擎生成重構 (先生成 improvedText 消除 Diff 落差，按單字/結構粒度嚴格提取 wordSuggestions)
 - [ ] 評分儀表板新增各類考試換算估分收合欄位 (學測 20 分制、IELTS、TOEFL、TOEIC 預估與評分規準說明)
