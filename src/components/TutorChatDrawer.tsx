@@ -3,6 +3,7 @@ import { Bot, Send, X, Sparkles, User, Loader2, Quote } from 'lucide-react';
 import { EssayAssessment, ChatMessage, GeminiSettings } from '../types/essay';
 import { sendTutorChatMessage } from '../services/geminiService';
 import { saveChatHistoryToDB, getChatHistoryFromDB } from '../services/storageService';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface TutorChatDrawerProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ const QUICK_PROMPTS = [
   '請提供 3 個母語者更常用的口語化說法',
   '如果想改寫成學術論文語氣，該怎麼說？',
   '這句有什麼常見的台式英文 (Chinglish) 陷阱嗎？',
+  '請繼續未完的說明',
 ];
 
 export function TutorChatDrawer({
@@ -178,9 +180,9 @@ export function TutorChatDrawer({
             )}
 
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-2.5 shadow-xs whitespace-pre-wrap ${
+              className={`max-w-[88%] rounded-2xl px-4 py-2.5 shadow-xs ${
                 msg.role === 'user'
-                  ? 'bg-indigo-600 text-white rounded-br-none'
+                  ? 'bg-indigo-600 text-white rounded-br-none whitespace-pre-wrap'
                   : 'bg-white border border-slate-200/90 text-slate-800 rounded-bl-none'
               }`}
             >
@@ -189,7 +191,11 @@ export function TutorChatDrawer({
                   針對："{msg.referencedSentence.slice(0, 30)}..."
                 </div>
               )}
-              {msg.content}
+              {msg.role === 'assistant' ? (
+                <MarkdownRenderer content={msg.content} />
+              ) : (
+                msg.content
+              )}
             </div>
 
             {msg.role === 'user' && (

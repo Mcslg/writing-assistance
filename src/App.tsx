@@ -143,8 +143,15 @@ export default function App() {
     setIsChatOpen(true);
   };
 
-  // 點擊新增文章
+  // 點擊新增文章（附帶未保存防呆提示）
   const handleNewEssay = () => {
+    if (
+      currentWorkingText.trim() &&
+      !currentAssessment &&
+      !window.confirm('確定要撰寫新文章嗎？當前編輯框內的未批改文字將會被清空。')
+    ) {
+      return;
+    }
     setCurrentAssessment(null);
     setFocusedSentence(null);
     setErrorMessage(null);

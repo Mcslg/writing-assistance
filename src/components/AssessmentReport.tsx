@@ -177,47 +177,85 @@ export function AssessmentReport({ assessment, onOpenChatWithTopic }: Assessment
         {isExamEstimatesOpen && (
           <div className="p-5 border-t border-slate-200/80 bg-slate-50/40 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 animate-fade-in">
             {/* 1. 台灣學測 */}
-            <div className="p-3.5 bg-white rounded-xl border border-indigo-100/90 shadow-xs space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-indigo-900">台灣學測英文作文</span>
-                <span className="text-[10px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold font-mono">
-                  {examEstimates.gsat.scale}
-                </span>
+            <div className="p-3.5 bg-white rounded-xl border border-indigo-100/90 shadow-xs space-y-2 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-indigo-900">台灣學測英文作文</span>
+                  <span className="text-[10px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold font-mono">
+                    {examEstimates.gsat.scale}
+                  </span>
+                </div>
+                <div className="text-base font-black text-indigo-600 tracking-tight mt-1">
+                  {examEstimates.gsat.estimatedScore}
+                </div>
               </div>
-              <div className="text-base font-black text-indigo-600 tracking-tight">
-                {examEstimates.gsat.estimatedScore}
-              </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed pt-1 border-t border-slate-100">
+
+              {/* 學測四大向度子分數 */}
+              {examEstimates.gsat.subscores && examEstimates.gsat.subscores.length > 0 && (
+                <div className="pt-2 border-t border-slate-100 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">四大向度細部得分：</span>
+                  <div className="grid grid-cols-2 gap-1 text-[11px]">
+                    {examEstimates.gsat.subscores.map((sub, sIdx) => (
+                      <div key={sIdx} className="bg-slate-50 px-1.5 py-1 rounded border border-slate-100 flex flex-col">
+                        <span className="text-[10px] text-slate-500 font-medium truncate">{sub.name.split(' ')[0]}</span>
+                        <strong className="text-indigo-700 font-mono text-[11px]">{sub.score}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-[11px] text-slate-500 leading-relaxed pt-1.5 border-t border-slate-100">
                 {examEstimates.gsat.rubricBreakdownZh}
               </p>
             </div>
 
             {/* 2. 雅思 IELTS */}
-            <div className="p-3.5 bg-white rounded-xl border border-rose-100/90 shadow-xs space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-rose-950">IELTS 雅思寫作</span>
-                <span className="text-[10px] bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded font-bold font-mono">
-                  {examEstimates.ielts.scale}
-                </span>
+            <div className="p-3.5 bg-white rounded-xl border border-rose-100/90 shadow-xs space-y-2 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-rose-950">IELTS 雅思寫作</span>
+                  <span className="text-[10px] bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded font-bold font-mono">
+                    {examEstimates.ielts.scale}
+                  </span>
+                </div>
+                <div className="text-base font-black text-rose-600 tracking-tight mt-1">
+                  {examEstimates.ielts.estimatedScore}
+                </div>
               </div>
-              <div className="text-base font-black text-rose-600 tracking-tight">
-                {examEstimates.ielts.estimatedScore}
-              </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed pt-1 border-t border-slate-100">
+
+              {/* 雅思四項標準子分數 */}
+              {examEstimates.ielts.subscores && examEstimates.ielts.subscores.length > 0 && (
+                <div className="pt-2 border-t border-slate-100 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">官方四項標準評級：</span>
+                  <div className="grid grid-cols-2 gap-1 text-[11px]">
+                    {examEstimates.ielts.subscores.map((sub, sIdx) => (
+                      <div key={sIdx} className="bg-slate-50 px-1.5 py-1 rounded border border-slate-100 flex flex-col">
+                        <span className="text-[10px] text-slate-500 font-medium truncate">{sub.name.split(' ')[0]}</span>
+                        <strong className="text-rose-700 font-mono text-[11px]">{sub.score}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-[11px] text-slate-500 leading-relaxed pt-1.5 border-t border-slate-100">
                 {examEstimates.ielts.rubricBreakdownZh}
               </p>
             </div>
 
             {/* 3. 托福 TOEFL */}
-            <div className="p-3.5 bg-white rounded-xl border border-amber-100/90 shadow-xs space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-amber-950">TOEFL iBT 托福寫作</span>
-                <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold font-mono">
-                  {examEstimates.toefl.scale}
-                </span>
-              </div>
-              <div className="text-base font-black text-amber-600 tracking-tight">
-                {examEstimates.toefl.estimatedScore}
+            <div className="p-3.5 bg-white rounded-xl border border-amber-100/90 shadow-xs space-y-2 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-amber-950">TOEFL iBT 托福寫作</span>
+                  <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold font-mono">
+                    {examEstimates.toefl.scale}
+                  </span>
+                </div>
+                <div className="text-base font-black text-amber-600 tracking-tight mt-1">
+                  {examEstimates.toefl.estimatedScore}
+                </div>
               </div>
               <p className="text-[11px] text-slate-500 leading-relaxed pt-1 border-t border-slate-100">
                 {examEstimates.toefl.rubricBreakdownZh}
@@ -225,15 +263,17 @@ export function AssessmentReport({ assessment, onOpenChatWithTopic }: Assessment
             </div>
 
             {/* 4. 多益 TOEIC */}
-            <div className="p-3.5 bg-white rounded-xl border border-emerald-100/90 shadow-xs space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-950">TOEIC 多益寫作</span>
-                <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold font-mono">
-                  {examEstimates.toeic.scale}
-                </span>
-              </div>
-              <div className="text-base font-black text-emerald-600 tracking-tight">
-                {examEstimates.toeic.estimatedScore}
+            <div className="p-3.5 bg-white rounded-xl border border-emerald-100/90 shadow-xs space-y-2 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-950">TOEIC 多益寫作</span>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold font-mono">
+                    {examEstimates.toeic.scale}
+                  </span>
+                </div>
+                <div className="text-base font-black text-emerald-600 tracking-tight mt-1">
+                  {examEstimates.toeic.estimatedScore}
+                </div>
               </div>
               <p className="text-[11px] text-slate-500 leading-relaxed pt-1 border-t border-slate-100">
                 {examEstimates.toeic.rubricBreakdownZh}
@@ -241,6 +281,11 @@ export function AssessmentReport({ assessment, onOpenChatWithTopic }: Assessment
             </div>
           </div>
         )}
+
+        {/* 警示小字免責聲明 */}
+        <div className="px-5 py-2.5 bg-slate-100/80 border-t border-slate-200/60 text-[11px] text-slate-500 flex items-center justify-between">
+          <span>* 聲明提醒：本預估成績係由 AI 模型依據公開評分規準模擬推算，<strong>分數僅供平時寫作練習與弱點診斷參考</strong>，不代表各考試機構之官方正式成績。</span>
+        </div>
       </div>
 
       {/* Highlights & Improvements */}

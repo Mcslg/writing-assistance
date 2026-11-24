@@ -13,12 +13,20 @@ export interface ScoreBreakdown {
   expression: number;    // 0 - 100 語氣與地道表達
 }
 
+// 測驗分項評分結構
+export interface ExamSubscore {
+  name: string;              // 向度名稱（如「內容」、「組織」、「文法句構」、「字彙拼字」）
+  score: string;             // 該向度得分（如「4.0 / 5 分」、「Band 6.5」）
+  descriptionZh?: string;    // 該向度簡短評核
+}
+
 // 各類考試預估成績結構
 export interface ExamScoreDetail {
   examName: string;          // 測驗名稱（如「台灣學測英文作文」、「IELTS 雅思寫作」）
   scale: string;             // 滿分與制式（如「滿分 20 分」、「0 - 9.0」）
   estimatedScore: string;    // 預估分數（如「15 / 20 分 (約 13~14 級分水準)」、「6.5 / 9.0」）
   rubricBreakdownZh: string;  // 評核理由與評分標準簡要說明
+  subscores?: ExamSubscore[]; // 四大向度細項得分
 }
 
 export interface ExamEstimates {

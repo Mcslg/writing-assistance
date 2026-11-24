@@ -45,6 +45,19 @@ const ASSESSMENT_JSON_SCHEMA = {
             scale: { type: 'STRING' },
             estimatedScore: { type: 'STRING', description: '例: 14.5 / 20 分 (約 13 級分)' },
             rubricBreakdownZh: { type: 'STRING', description: '依據學測四大向度(內容、組織、文法句構、字彙拼字)的簡要分析' },
+            subscores: {
+              type: 'ARRAY',
+              description: '學測四大向度：內容(5分)、組織(5分)、文法句構(4分)、字彙拼字(4分)細部得分',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  name: { type: 'STRING', description: '向度名稱，例: 內容 (Content)' },
+                  score: { type: 'STRING', description: '得分，例: 4.0 / 5' },
+                  descriptionZh: { type: 'STRING', description: '向度短評' },
+                },
+                required: ['name', 'score'],
+              },
+            },
           },
           required: ['examName', 'scale', 'estimatedScore', 'rubricBreakdownZh'],
         },
@@ -55,6 +68,19 @@ const ASSESSMENT_JSON_SCHEMA = {
             scale: { type: 'STRING' },
             estimatedScore: { type: 'STRING', description: '例: Band 6.5 / 9.0' },
             rubricBreakdownZh: { type: 'STRING', description: '針對 Task Response, Cohesion, Lexical, Grammar 的簡要評核' },
+            subscores: {
+              type: 'ARRAY',
+              description: '雅思四大評分指標：Task Response, Coherence & Cohesion, Lexical Resource, Grammar',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  name: { type: 'STRING', description: '指標名稱，例: Task Response (TR)' },
+                  score: { type: 'STRING', description: '評級，例: Band 6.5' },
+                  descriptionZh: { type: 'STRING', description: '指標短評' },
+                },
+                required: ['name', 'score'],
+              },
+            },
           },
           required: ['examName', 'scale', 'estimatedScore', 'rubricBreakdownZh'],
         },
@@ -239,18 +265,36 @@ export function generateDefaultExamEstimates(overallScore: number): ExamEstimate
   // 多益寫作 0 - 200
   const toeicScore = Math.min(200, Math.max(60, Math.round((overallScore / 100) * 200 / 10) * 10));
 
+  // 學測子項推算 (內容 5, 組織 5, 文法 4, 字彙 4)
+  const gsatContent = (Math.round((overallScore / 100) * 5 * 10) / 10).toFixed(1);
+  const gsatOrg = (Math.round((overallScore / 100) * 5 * 10) / 10).toFixed(1);
+  const gsatGrammar = (Math.round((overallScore / 100) * 4 * 10) / 10).toFixed(1);
+  const gsatVocab = (Math.round((overallScore / 100) * 4 * 10) / 10).toFixed(1);
+
   return {
     gsat: {
       examName: '台灣學測英文作文 (GSAT)',
       scale: '滿分 20 分',
       estimatedScore: `${gsatRaw} / 20 分 (推估約 ${gsatGrade})`,
       rubricBreakdownZh: '依據學測大考中心標準：內容充實度、組織架構連貫、文法句構多樣性與單字拼字正確性綜合推估。',
+      subscores: [
+        { name: '內容 (Content)', score: `${gsatContent} / 5 分`, descriptionZh: '切題度與觀點論述充實性' },
+        { name: '組織 (Organization)', score: `${gsatOrg} / 5 分`, descriptionZh: '段落銜接與邏輯轉折發展' },
+        { name: '文法句構 (Grammar)', score: `${gsatGrammar} / 4 分`, descriptionZh: '句型多樣性與語法時態精確度' },
+        { name: '字彙拼字 (Vocabulary)', score: `${gsatVocab} / 4 分`, descriptionZh: '用字深度與拼寫標點規範' },
+      ],
     },
     ielts: {
       examName: 'IELTS 雅思寫作測驗',
       scale: 'Band 0 - 9.0',
       estimatedScore: `Band ${ieltsBand} / 9.0`,
       rubricBreakdownZh: '依據 Task Achievement/Response、Coherence & Cohesion、Lexical Resource、Grammar Range & Accuracy 四大標準推估。',
+      subscores: [
+        { name: 'Task Response (TR)', score: `Band ${ieltsBand}`, descriptionZh: '切題完整度與核心論點支撐' },
+        { name: 'Coherence & Cohesion (CC)', score: `Band ${ieltsBand}`, descriptionZh: '篇章流暢度與連接詞運用' },
+        { name: 'Lexical Resource (LR)', score: `Band ${ieltsBand}`, descriptionZh: '用字廣度與搭配詞自然感' },
+        { name: 'Grammatical Range (GRA)', score: `Band ${ieltsBand}`, descriptionZh: '複合句法豐富度與準確性' },
+      ],
     },
     toefl: {
       examName: 'TOEFL iBT 托福寫作',
@@ -520,7 +564,8 @@ ${assessment.improvedText}
 1. 用繁體中文友善、耐心地回答學習者的疑問。
 2. 針對學習者的問題進行深入解析，適時提供例句、常見錯誤陷阱或同義片語對比。
 3. 如果學習者詢問特定句子或字詞，請聚焦該字詞的語境、搭配詞與母語者用詞習慣。
-4. 保持精煉、條理分明。
+4. 務必使用結構化的 Markdown 語法回答（善用項目清單 -、粗體 **重點**、行內代碼與引號 > ），使排版清晰易讀。
+5. 直擊核心重點，條理清晰，篇幅控制在 300~800 字之內，避免冗長的無效寒暄。
 `.trim();
 
   const contents: any[] = [];
@@ -555,29 +600,49 @@ ${assessment.improvedText}
     },
     contents,
     generationConfig: {
-      temperature: 0.5,
-      maxOutputTokens: 1500,
+      temperature: 0.4,
+      maxOutputTokens: 4096, // 提高上限避免截斷
     },
   };
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+  // 逾時控制器 (45 秒逾時保護)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
 
-  if (!response.ok) {
-    const errorJson = await response.json().catch(() => null);
-    const errorMsg = errorJson?.error?.message || `HTTP ${response.status}`;
-    throw new Error(`助教回覆失敗: ${errorMsg}`);
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorJson = await response.json().catch(() => null);
+      const errorMsg = errorJson?.error?.message || `HTTP ${response.status}`;
+      throw new Error(`助教回覆失敗: ${errorMsg}`);
+    }
+
+    const data = await response.json();
+    const candidate = data?.candidates?.[0];
+    let reply = candidate?.content?.parts?.[0]?.text;
+
+    if (!reply) {
+      throw new Error('未收到助教回覆內容，請稍後重試。');
+    }
+
+    // 若達到 token 上限而被切斷，主動提示使用者
+    if (candidate?.finishReason === 'MAX_TOKENS') {
+      reply += '\n\n*(提示：回覆已達單次長度上限，如需進一步說明可輸入「請繼續」)*';
+    }
+
+    return reply;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('助教連線逾時（超過 45 秒未回應），請檢查網路連線或稍後再試。');
+    }
+    throw err;
   }
-
-  const data = await response.json();
-  const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-  if (!reply) {
-    throw new Error('未收到助教回覆，請稍後重試。');
-  }
-
-  return reply;
 }
