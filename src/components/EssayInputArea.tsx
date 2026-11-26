@@ -1,5 +1,5 @@
-import { useState, useId } from 'react';
-import { Sparkles, FileText, Target, BookOpen, Loader2, Eraser } from 'lucide-react';
+import { useState, useId, useEffect } from 'react';
+import { Sparkles, FileText, Target, BookOpen, Loader2, Eraser, Clock } from 'lucide-react';
 import { WritingGoal } from '../types/essay';
 import { countWords } from '../services/geminiService';
 
@@ -46,7 +46,24 @@ export function EssayInputArea({
   const [text, setText] = useState(initialText);
   const [topic, setTopic] = useState(initialTopic);
   const [goal, setGoal] = useState<WritingGoal>(initialGoal);
+  const [secondsElapsed, setSecondsElapsed] = useState(0);
   const topicInputId = useId();
+
+  // 計時器：批改中提供秒數即時反饋
+  useEffect(() => {
+    let timer: number | null = null;
+    if (isLoading) {
+      setSecondsElapsed(0);
+      timer = window.setInterval(() => {
+        setSecondsElapsed((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setSecondsElapsed(0);
+    }
+    return () => {
+      if (timer !== null) window.clearInterval(timer);
+    };
+  }, [isLoading]);
 
   const words = countWords(text);
   const chars = text.length;
@@ -161,6 +178,12 @@ export function EssayInputArea({
             <span>
               <strong className="text-slate-700 font-semibold">{chars}</strong> 字元 (Chars)
             </span>
+            {isLoading && (
+              <span className="inline-flex items-center gap-1.5 text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md text-[11px] font-sans">
+                <Clock className="w-3 h-3 animate-spin" />
+                已耗時 {secondsElapsed}s (這可能需要 5~15 秒，上限 30 秒)
+              </span>
+            )}
           </div>
 
           <button
@@ -177,7 +200,9 @@ export function EssayInputArea({
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Gemini 深入批改中...</span>
+                <span>
+                  {secondsElapsed >= 6 ? '深入精細潤飾中...' : 'Gemini 批改中...'}
+                </span>
               </>
             ) : (
               <>
