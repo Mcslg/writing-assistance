@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Header,
@@ -54,6 +54,7 @@ export default function App() {
   // Loading & error
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const analysisAbortRef = useRef<AbortController | null>(null);
 
   // 全歷史寫作總體檢與橫向重評 state
   const [portfolioReport, setPortfolioReport] = useState<PortfolioReport | null>(null);
@@ -96,6 +97,8 @@ export default function App() {
       return;
     }
 
+    const controller = new AbortController();
+    analysisAbortRef.current = controller;
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -106,6 +109,7 @@ export default function App() {
         essayText: text,
         writingGoal: goal,
         promptTopic: topic,
+        signal: controller.signal,
       });
 
       setCurrentAssessment(assessment);
@@ -128,11 +132,25 @@ export default function App() {
         // ignore
       }
     } catch (err: any) {
+      if (err.message === '批改請求已取消。') {
+        // 使用者手動取消，不視為錯誤
+        return;
+      }
       console.error(err);
       setErrorMessage(err.message || '批改分析時發生未知錯誤，請檢查網路連線或 API Key。');
     } finally {
       setIsLoading(false);
+      analysisAbortRef.current = null;
     }
+  };
+
+  // 取消當前批改分析
+  const handleCancelAnalysis = () => {
+    if (analysisAbortRef.current) {
+      analysisAbortRef.current.abort();
+      analysisAbortRef.current = null;
+    }
+    setIsLoading(false);
   };
 
   // 刪除單筆紀錄
@@ -309,6 +327,7 @@ export default function App() {
               isLoading={isLoading}
               hasApiKey={!!settings.apiKey?.trim()}
               onPromptApiKey={() => setIsSettingsOpen(true)}
+              onCancel={handleCancelAnalysis}
             />
           )}
         </section>

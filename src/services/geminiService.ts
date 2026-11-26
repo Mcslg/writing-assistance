@@ -319,8 +319,9 @@ export async function analyzeEssayWithGemini(params: {
   essayText: string;
   writingGoal: WritingGoal;
   promptTopic?: string;
+  signal?: AbortSignal;
 }): Promise<EssayAssessment> {
-  const { apiKey, model, essayText, writingGoal, promptTopic } = params;
+  const { apiKey, model, essayText, writingGoal, promptTopic, signal } = params;
 
   if (!apiKey.trim()) {
     throw new Error('未設定 Gemini API Key，請點擊右上角設定輸入金鑰。');
@@ -380,22 +381,17 @@ ${essayText}
     },
   };
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // 批改逾時上限嚴格設為 30 秒
-
   let response: Response;
   try {
     response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      signal: controller.signal,
+      signal,
     });
-    clearTimeout(timeoutId);
   } catch (err: any) {
-    clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      throw new Error('批改請求逾時（超過 30 秒未回應）。已主動中斷以避免過久等待，建議檢查網路連線或換用極速的 Gemini 3.5 Flash / Flash Lite 模型重試。');
+      throw new Error('批改請求已取消。');
     }
     throw err;
   }
@@ -486,8 +482,9 @@ export async function fetchWordNuanceAnalysis(params: {
   model: string;
   word: string;
   sentenceContext: string;
+  signal?: AbortSignal;
 }): Promise<NuanceAnalysis> {
-  const { apiKey, model, word, sentenceContext } = params;
+  const { apiKey, model, word, sentenceContext, signal } = params;
 
   const prompt = `
 請針對以下英文句子中使用的較籠統字詞進行深度的「語義拆解與情境替換分析」：
@@ -520,9 +517,6 @@ export async function fetchWordNuanceAnalysis(params: {
 
   const url = `${GEMINI_API_BASE}/models/${model}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000); // 籠統字剖析逾時上限 15 秒
-
   let response: Response;
   try {
     response = await fetch(url, {
@@ -535,13 +529,11 @@ export async function fetchWordNuanceAnalysis(params: {
           temperature: 0.2,
         },
       }),
-      signal: controller.signal,
+      signal,
     });
-    clearTimeout(timeoutId);
   } catch (err: any) {
-    clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      throw new Error('單字拆解請求逾時（超過 15 秒），已中斷請求。');
+      throw new Error('單字剖析請求已取消。');
     }
     throw err;
   }
@@ -573,8 +565,9 @@ export async function sendTutorChatMessage(params: {
   chatHistory: ChatMessage[];
   userMessage: string;
   referencedSentence?: string;
+  signal?: AbortSignal;
 }): Promise<string> {
-  const { apiKey, model, assessment, chatHistory, userMessage, referencedSentence } = params;
+  const { apiKey, model, assessment, chatHistory, userMessage, referencedSentence, signal } = params;
 
   const systemPrompt = `
 你是一位隨身英語寫作 AI 助教。
@@ -634,18 +627,13 @@ ${assessment.improvedText}
     },
   };
 
-  // 逾時控制器 (25 秒逾時保護，避免使用者等候過久)
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25000);
-
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      signal: controller.signal,
+      signal,
     });
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorJson = await response.json().catch(() => null);
@@ -668,9 +656,8 @@ ${assessment.improvedText}
 
     return reply;
   } catch (err: any) {
-    clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      throw new Error('助教連線逾時（超過 25 秒未回應）。已主動中斷以避免過久等待，請檢查網路或稍後重試。');
+      throw new Error('助教對話已取消。');
     }
     throw err;
   }
@@ -761,7 +748,8 @@ const PORTFOLIO_JSON_SCHEMA = {
 export async function generatePortfolioReport(
   apiKey: string,
   model: string,
-  assessments: EssayAssessment[]
+  assessments: EssayAssessment[],
+  signal?: AbortSignal
 ): Promise<PortfolioReport> {
   if (!apiKey || !apiKey.trim()) {
     throw new Error('請先在設定中輸入有效的 Gemini API Key。');
@@ -839,17 +827,13 @@ ${issues || '無特定標記問題'}
     },
   };
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 35000); // 體檢上限調降為 35 秒，避免等待過久
-
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      signal: controller.signal,
+      signal,
     });
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorJson = await response.json().catch(() => null);
@@ -879,9 +863,8 @@ ${issues || '無特定標記問題'}
 
     return report;
   } catch (err: any) {
-    clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      throw new Error('體檢分析連線逾時（超過 35 秒未回應）。已主動中斷以避免過久等待，建議檢查連線或換用 Gemini 3.5 Flash 進行重試。');
+      throw new Error('全歷史體檢分析已取消。');
     }
     throw err;
   }
