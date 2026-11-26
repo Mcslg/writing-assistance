@@ -5,6 +5,7 @@ import {
   WordLevelSuggestion,
   NuanceAnalysis,
   ExamEstimates,
+  PortfolioReport,
 } from '../types/essay';
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
@@ -646,3 +647,215 @@ ${assessment.improvedText}
     throw err;
   }
 }
+
+// ==================== 全歷史縱向診斷與橫向重評 (Portfolio Assessment) ====================
+
+const PORTFOLIO_JSON_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    overallSummary: {
+      type: 'STRING',
+      description: '客觀全面的全歷史文章縱向學習診斷總結（繁體中文，指出主要實力分佈、進展與核心突破點）',
+    },
+    calibratedRanks: {
+      type: 'ARRAY',
+      description: '所有文章橫向對比後的精準重新校準評分與高低排序（拉開真實差距）',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          essayId: { type: 'STRING' },
+          title: { type: 'STRING' },
+          date: { type: 'STRING' },
+          originalScore: { type: 'INTEGER', description: '原單篇評分 (0-100)' },
+          calibratedScore: { type: 'INTEGER', description: '橫向校準後的分數 (0-100，嚴格體現文章之間的相對水準)' },
+          rank: { type: 'INTEGER', description: '排名 (1 為表現最優)' },
+          calibrationReason: { type: 'STRING', description: '此篇橫向對比後分數調升/調降或居於該名次的具體客觀理由' },
+        },
+        required: ['essayId', 'title', 'date', 'originalScore', 'calibratedScore', 'rank', 'calibrationReason'],
+      },
+    },
+    commonErrorPatterns: {
+      type: 'ARRAY',
+      description: '跨篇反覆出現的高頻頑疾 Top 3-5 筆（文法、拼字、用詞、簡潔或風格語氣）',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          category: {
+            type: 'STRING',
+            enum: ['grammar', 'spelling', 'vocabulary', 'conciseness', 'style'],
+          },
+          name: { type: 'STRING', description: '頑疾名稱 (例如：混淆及物/不及物動詞之介系詞)' },
+          frequency: { type: 'INTEGER', description: '估計在所有文章中累計出現次數' },
+          affectedEssayCount: { type: 'INTEGER', description: '受影響的文章篇數' },
+          description: { type: 'STRING', description: '此錯誤的深層思維原因或常見盲點剖析' },
+          examples: {
+            type: 'ARRAY',
+            description: '取自文章的代表性實例',
+            items: {
+              type: 'OBJECT',
+              properties: {
+                original: { type: 'STRING' },
+                improved: { type: 'STRING' },
+                explanation: { type: 'STRING' },
+              },
+              required: ['original', 'improved', 'explanation'],
+            },
+          },
+          advice: { type: 'STRING', description: '破除該頑疾的具體訓練與記憶建議' },
+        },
+        required: ['category', 'name', 'frequency', 'affectedEssayCount', 'description', 'examples', 'advice'],
+      },
+    },
+    growthAnalysis: {
+      type: 'OBJECT',
+      description: '按時間演進的寫作縱向成長與能力變化軌跡',
+      properties: {
+        trajectory: {
+          type: 'STRING',
+          enum: ['improving', 'stable', 'fluctuating', 'needs_attention'],
+          description: '整體發展軌跡 (進步中/持平/起伏波動/需特別注意)',
+        },
+        vocabularyProgress: { type: 'STRING', description: '詞彙豐富度與精確度隨時間的變化與現況' },
+        grammarProgress: { type: 'STRING', description: '文法控制力與句構多樣性隨時間的變化與現況' },
+        coherenceProgress: { type: 'STRING', description: '篇章組織、邏輯推展與轉折流暢度的變化與現況' },
+        strategicAdvice: {
+          type: 'ARRAY',
+          description: '給予該學習者下一階段突破瓶頸的具體行動方針 (3-5 條)',
+          items: { type: 'STRING' },
+        },
+      },
+      required: ['trajectory', 'vocabularyProgress', 'grammarProgress', 'coherenceProgress', 'strategicAdvice'],
+    },
+  },
+  required: ['overallSummary', 'calibratedRanks', 'commonErrorPatterns', 'growthAnalysis'],
+};
+
+export async function generatePortfolioReport(
+  apiKey: string,
+  model: string,
+  assessments: EssayAssessment[]
+): Promise<PortfolioReport> {
+  if (!apiKey || !apiKey.trim()) {
+    throw new Error('請先在設定中輸入有效的 Gemini API Key。');
+  }
+
+  if (assessments.length < 2) {
+    throw new Error('至少需要 2 篇以上的歷史文章才能進行跨篇橫向校準與縱向成長診斷。');
+  }
+
+  // 依時間排序（由舊到新方便分析時間軌跡）
+  const chronological = [...assessments].sort((a, b) => a.createdAt - b.createdAt);
+
+  // 雙軌封裝文章資料：原文 + 批改問題點
+  const corpusSummary = chronological.map((a, idx) => {
+    const dateStr = new Date(a.createdAt).toLocaleDateString('zh-TW');
+    // 取出前 10 個標記問題作為問題精要
+    const issues = (a.wordSuggestions || []).slice(0, 10).map(s => 
+      `[${s.category}] 原文: "${s.originalSpan}" -> 建議: "${s.suggestedSpan}" (${s.explanationZh})`
+    ).join('; ');
+
+    return `### 文章 #${idx + 1}
+- 標題: ${a.title || '無標題'}
+- ID: ${a.id}
+- 日期: ${dateStr}
+- 原始評分: ${a.scores.overall} / 100 (CEFR: ${a.cefrLevel})
+- 字數: 原文 ${a.wordCount?.original ?? a.originalText.split(/\s+/).length} 字
+- 原始全文:
+"""
+${a.originalText}
+"""
+- 當時批改檢驗出的具體瑕疵摘錄:
+${issues || '無特定標記問題'}
+`;
+  }).join('\n\n--------------------\n\n');
+
+  const systemPrompt = `你是一位資深英文寫作評估專家、語料庫分析師與語言測驗考官。
+使用者提供了其在系統中累積撰寫的 ${assessments.length} 篇英文文章，包含各篇原文、原始評分與當時標記出的語言問題。
+
+請進行客觀嚴肅的「全歷史寫作縱向診斷與橫向重評」，遵守以下核心原則：
+1. 【拒絕籠統給分，拉開橫向鑑別度】：
+   - 過去單篇獨立批改時，容易因為不同時間點而給出過於保守或接近的分數（例如都在 75~80 之間）。
+   - 請橫向互相比對所有文章的「論點深度、篇章結構組織、語意精確性、句型豐富度與文法成熟度」。
+   - 將文章重新校準給分（0-100）並排出第 1 名到最後一名。寫得真正出色的篇章請大膽給高分，結構鬆散或問題密集的篇章請客觀調低，拉出顯著的差距，並說明詳細的橫向對比依據。
+2. 【挖掘跨篇反覆犯錯的高頻頑疾 Top 3-5】：
+   - 深入比對不同文章，找出該作者「跨越不同主題依然反覆出現的盲點」（例如動詞介系詞搭配失誤、贅詞過多、句子過長缺乏連接詞、中式英文直翻等）。
+   - 請提供取自真實文章的具體例句與修改說明，並給予一針見血的破解指南。
+3. 【客觀評估時間縱向成長軌跡】：
+   - 觀察從第一篇到最後一篇，作者在詞彙廣度、文法控制度、篇章邏輯上是否有進步、持平或起伏。
+   - 給予 3-5 項下一階段最關鍵的突破練習戰略。
+4. 【語言與語氣】：
+   - 全程使用繁體中文 (Traditional Chinese)。
+   - 態度中立客觀，不迎合不諂媚，不作誇飾的讚美，直指問題核心並指出真正優勢。
+5. 【輸出格式】：
+   - 必須嚴格符合 JSON Schema 規範。`;
+
+  const userQuery = `以下為 ${assessments.length} 篇歷史文章的完整資料：\n\n${corpusSummary}\n\n請依據以上指示，完成全歷史橫向校準評分、高頻頑疾提煉與縱向成長分析。`;
+
+  const url = `${GEMINI_API_BASE}/models/${model}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
+
+  const payload = {
+    system_instruction: {
+      parts: [{ text: systemPrompt }],
+    },
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: userQuery }],
+      },
+    ],
+    generationConfig: {
+      response_mime_type: 'application/json',
+      response_schema: PORTFOLIO_JSON_SCHEMA,
+      temperature: 0.2, // 保持評核一致與穩定
+      maxOutputTokens: 8192,
+    },
+  };
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 90000); // 體檢允許 90 秒
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorJson = await response.json().catch(() => null);
+      const errorMsg = errorJson?.error?.message || `HTTP ${response.status}`;
+      throw new Error(`全歷史總體檢分析失敗: ${errorMsg}`);
+    }
+
+    const data = await response.json();
+    const candidate = data?.candidates?.[0];
+    const text = candidate?.content?.parts?.[0]?.text;
+
+    if (!text) {
+      throw new Error('未取得體檢分析結果，請稍後重試。');
+    }
+
+    const parsed = JSON.parse(text);
+
+    const report: PortfolioReport = {
+      id: `portfolio_${Date.now()}`,
+      createdAt: Date.now(),
+      totalEssaysAnalyzed: assessments.length,
+      overallSummary: parsed.overallSummary,
+      calibratedRanks: parsed.calibratedRanks,
+      commonErrorPatterns: parsed.commonErrorPatterns,
+      growthAnalysis: parsed.growthAnalysis,
+    };
+
+    return report;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('體檢分析連線逾時（超過 90 秒），文章量較多時建議換用 Gemini 3.5 Flash 進行分析。');
+    }
+    throw err;
+  }
+}
+

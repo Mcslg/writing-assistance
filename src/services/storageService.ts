@@ -1,7 +1,8 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { EssayAssessment, ChatMessage, GeminiSettings } from '../types/essay';
+import { EssayAssessment, ChatMessage, GeminiSettings, PortfolioReport } from '../types/essay';
 
 const SETTINGS_KEY = 'writing_assistant_settings';
+const PORTFOLIO_STORAGE_KEY = 'writing_assistant_latest_portfolio';
 
 interface WritingAssistantDB extends DBSchema {
   assessments: {
@@ -17,10 +18,15 @@ interface WritingAssistantDB extends DBSchema {
       updatedAt: number;
     };
   };
+  portfolioReports: {
+    key: string;
+    value: PortfolioReport;
+    indexes: { 'by-date': number };
+  };
 }
 
 const DB_NAME = 'writing_assistance_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase<WritingAssistantDB>> | null = null;
 
@@ -34,6 +40,10 @@ function getDB() {
         }
         if (!db.objectStoreNames.contains('chatHistories')) {
           db.createObjectStore('chatHistories', { keyPath: 'essayId' });
+        }
+        if (!db.objectStoreNames.contains('portfolioReports')) {
+          const reportStore = db.createObjectStore('portfolioReports', { keyPath: 'id' });
+          reportStore.createIndex('by-date', 'createdAt');
         }
       },
     });
@@ -106,6 +116,56 @@ export async function clearAllAssessmentsFromDB(): Promise<void> {
   const db = await getDB();
   await db.clear('assessments');
   await db.clear('chatHistories');
+  if (db.objectStoreNames.contains('portfolioReports')) {
+    await db.clear('portfolioReports');
+  }
+  localStorage.removeItem(PORTFOLIO_STORAGE_KEY);
+}
+
+// ==================== IndexedDB Portfolio Reports ====================
+
+export async function savePortfolioReportToDB(report: PortfolioReport): Promise<void> {
+  try {
+    const db = await getDB();
+    if (db.objectStoreNames.contains('portfolioReports')) {
+      await db.put('portfolioReports', report);
+    }
+    // 同步備份至 LocalStorage 以防 IndexedDB 讀取失敗
+    localStorage.setItem(PORTFOLIO_STORAGE_KEY, JSON.stringify(report));
+  } catch (e) {
+    console.warn('Failed to save portfolio report to IndexedDB, fallback to LocalStorage:', e);
+    try {
+      localStorage.setItem(PORTFOLIO_STORAGE_KEY, JSON.stringify(report));
+    } catch (err) {
+      console.error('LocalStorage write failed:', err);
+    }
+  }
+}
+
+export async function getLatestPortfolioReportFromDB(): Promise<PortfolioReport | null> {
+  try {
+    const db = await getDB();
+    if (db.objectStoreNames.contains('portfolioReports')) {
+      const items = await db.getAllFromIndex('portfolioReports', 'by-date');
+      if (items.length > 0) {
+        return items[items.length - 1]; // 最新一筆
+      }
+    }
+  } catch (e) {
+    console.warn('IndexedDB read portfolio error, checking fallback:', e);
+  }
+
+  // Fallback to LocalStorage
+  try {
+    const raw = localStorage.getItem(PORTFOLIO_STORAGE_KEY);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch (err) {
+    console.error('LocalStorage read error:', err);
+  }
+
+  return null;
 }
 
 // ==================== IndexedDB Chat Histories ====================

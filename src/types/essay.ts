@@ -124,3 +124,47 @@ export const SUPPORTED_MODELS = [
   { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash Lite (輕量替補)', description: '極低延遲，適合長文即時回饋' },
   { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro (深度分析)', description: '更細膩的篇章邏輯與高級詞彙分析' },
 ] as const;
+
+// 全歷史縱向診斷與橫向重評型別
+export interface CalibratedEssayRank {
+  essayId: string;
+  title: string;
+  date: string;
+  originalScore: number;       // 原單篇評分 (0-100)
+  calibratedScore: number;     // 橫向橫比校準後分數 (0-100，拉開鑑別度)
+  rank: number;                // 排序 (1 為最佳)
+  calibrationReason: string;   // 為何高於或低於其他篇章的具體理由
+}
+
+export interface CommonErrorPattern {
+  category: SuggestionCategory;
+  name: string;                // 頑疾名稱，例如「混淆及物與不及物動詞」、「過度重複使用 However」
+  frequency: number;           // 出現總次數
+  affectedEssayCount: number;  // 影響篇數
+  description: string;         // 錯誤原理剖析
+  examples: {
+    original: string;
+    improved: string;
+    explanation: string;
+  }[];
+  advice: string;              // 破除此盲點的具體訓練指南
+}
+
+export interface GrowthAnalysis {
+  trajectory: 'improving' | 'stable' | 'fluctuating' | 'needs_attention';
+  vocabularyProgress: string;  // 詞彙廣度與精準度變化
+  grammarProgress: string;     // 文法掌控度變化
+  coherenceProgress: string;   // 篇章組織與論證連貫度變化
+  strategicAdvice: string[];   // 下一步寫作進階重點清單
+}
+
+export interface PortfolioReport {
+  id: string;
+  createdAt: number;
+  totalEssaysAnalyzed: number;
+  overallSummary: string;
+  calibratedRanks: CalibratedEssayRank[];
+  commonErrorPatterns: CommonErrorPattern[];
+  growthAnalysis: GrowthAnalysis;
+}
+

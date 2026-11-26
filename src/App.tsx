@@ -11,12 +11,14 @@ import { InteractiveAnnotatedEditor } from './components/InteractiveAnnotatedEdi
 import { AssessmentReport } from './components/AssessmentReport';
 import { DiffViewer } from './components/DiffViewer';
 import { SentenceAnalysisList } from './components/SentenceAnalysisList';
+import { PortfolioReportModal } from './components/PortfolioReportModal';
 
 import {
   EssayAssessment,
   GeminiSettings,
   WritingGoal,
   SentenceAnalysis,
+  PortfolioReport,
 } from './types/essay';
 
 import {
@@ -27,9 +29,11 @@ import {
   getAllAssessmentsFromDB,
   deleteAssessmentFromDB,
   clearAllAssessmentsFromDB,
+  savePortfolioReportToDB,
+  getLatestPortfolioReportFromDB,
 } from './services/storageService';
 
-import { analyzeEssayWithGemini } from './services/geminiService';
+import { analyzeEssayWithGemini, generatePortfolioReport } from './services/geminiService';
 import { Bot, RefreshCw, AlertCircle, ListChecks, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function App() {
@@ -51,10 +55,20 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 初始載入歷史紀錄
+  // 全歷史寫作總體檢與橫向重評 state
+  const [portfolioReport, setPortfolioReport] = useState<PortfolioReport | null>(null);
+  const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
+  const [isGeneratingPortfolio, setIsGeneratingPortfolio] = useState(false);
+
+  // 初始載入歷史紀錄與最新體檢報告
   useEffect(() => {
     getAllAssessmentsFromDB().then((items) => {
       setAssessments(items);
+    });
+    getLatestPortfolioReportFromDB().then((report) => {
+      if (report) {
+        setPortfolioReport(report);
+      }
     });
   }, []);
 
@@ -70,6 +84,7 @@ export default function App() {
     setSettings(getStoredSettings());
     setAssessments([]);
     setCurrentAssessment(null);
+    setPortfolioReport(null);
     setTextMode('input');
     setCurrentWorkingText('');
   };
@@ -135,6 +150,50 @@ export default function App() {
     await clearAllAssessmentsFromDB();
     setAssessments([]);
     setCurrentAssessment(null);
+    setPortfolioReport(null);
+  };
+
+  // 執行全歷史寫作總體檢與橫向重評
+  const handleRunPortfolioDiagnosis = async () => {
+    if (!settings.apiKey?.trim()) {
+      setIsSettingsOpen(true);
+      return;
+    }
+
+    if (assessments.length < 2) {
+      setErrorMessage('歷史紀錄需至少有 2 篇以上的文章，才能進行跨篇橫向校準評分與高頻頑疾提煉。');
+      return;
+    }
+
+    setIsGeneratingPortfolio(true);
+    setErrorMessage(null);
+
+    try {
+      const report = await generatePortfolioReport(
+        settings.apiKey,
+        settings.model,
+        assessments
+      );
+
+      setPortfolioReport(report);
+      await savePortfolioReportToDB(report);
+      setIsPortfolioModalOpen(true);
+
+      try {
+        confetti({
+          particleCount: 60,
+          spread: 70,
+          origin: { y: 0.7 },
+        });
+      } catch (e) {
+        // ignore
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(err.message || '執行全歷史體檢與重評時發生錯誤，請稍後重試。');
+    } finally {
+      setIsGeneratingPortfolio(false);
+    }
   };
 
   // 從逐句清單點擊「追問助教」
@@ -366,7 +425,31 @@ export default function App() {
         }}
         onDeleteAssessment={handleDeleteAssessment}
         onClearAll={handleClearAllHistory}
+        onRunPortfolioDiagnosis={handleRunPortfolioDiagnosis}
+        isGeneratingPortfolio={isGeneratingPortfolio}
+        hasExistingPortfolio={!!portfolioReport}
+        onOpenExistingPortfolio={() => {
+          setIsHistoryOpen(false);
+          setIsPortfolioModalOpen(true);
+        }}
       />
+
+      {/* 全歷史寫作縱向診斷與橫向重評報告 Modal */}
+      {isPortfolioModalOpen && portfolioReport && (
+        <PortfolioReportModal
+          report={portfolioReport}
+          onClose={() => setIsPortfolioModalOpen(false)}
+          onSelectEssay={(essayId) => {
+            const found = assessments.find((a) => a.id === essayId);
+            if (found) {
+              setCurrentAssessment(found);
+              setCurrentWorkingText(found.originalText);
+              setTextMode('review');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+          }}
+        />
+      )}
 
       {currentAssessment && (
         <TutorChatDrawer
