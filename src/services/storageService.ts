@@ -46,6 +46,20 @@ function getDB() {
           reportStore.createIndex('by-date', 'createdAt');
         }
       },
+      blocked() {
+        console.warn('IndexedDB upgrade blocked. Please close other open tabs of this app.');
+      },
+      blocking(_, __, event) {
+        // 當新版本嘗試連線時關閉連線，避免死鎖
+        const target = event.target as IDBOpenDBRequest | IDBDatabase | any;
+        if (target && typeof target.close === 'function') {
+          target.close();
+        }
+        dbPromise = null;
+      },
+      terminated() {
+        dbPromise = null;
+      },
     });
   }
   return dbPromise;
@@ -93,8 +107,17 @@ export async function saveAssessmentToDB(assessment: EssayAssessment): Promise<v
 export async function getAllAssessmentsFromDB(): Promise<EssayAssessment[]> {
   try {
     const db = await getDB();
-    const items = await db.getAllFromIndex('assessments', 'by-date');
-    return items.reverse(); // 最新排序
+    if (!db.objectStoreNames.contains('assessments')) {
+      return [];
+    }
+    try {
+      const items = await db.getAllFromIndex('assessments', 'by-date');
+      return items.reverse(); // 最新排序
+    } catch (idxErr) {
+      console.warn('Index by-date failed, falling back to direct getAll:', idxErr);
+      const items = await db.getAll('assessments');
+      return items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    }
   } catch (e) {
     console.error('Failed to read assessments from DB:', e);
     return [];
