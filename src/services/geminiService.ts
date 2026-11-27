@@ -233,6 +233,42 @@ const ASSESSMENT_JSON_SCHEMA = {
               logicCritiqueZh: { type: 'STRING', description: '該段邏輯推展剖析（明確指出推論是否成立、哪句話是空泛陳述或邏輯斷層）' },
               evidenceQualityZh: { type: 'STRING', description: '該段論據、細節或實例的支撐力道評價' },
               actionableAdviceZh: { type: 'STRING', description: '具體如何改善該段架構與論證說服力的行動建議' },
+              sentenceBreakdown: {
+                type: 'ARRAY',
+                description: '該段落內逐句之修辭角色與推論健全度分析',
+                items: {
+                  type: 'OBJECT',
+                  properties: {
+                    sentenceIndex: { type: 'INTEGER', description: '段內句子序號 (從 1 起算)' },
+                    text: { type: 'STRING', description: '句子原文' },
+                    role: {
+                      type: 'STRING',
+                      enum: [
+                        'hook',
+                        'thesis',
+                        'topic_sentence',
+                        'explanation',
+                        'evidence',
+                        'elaboration',
+                        'counterargument',
+                        'refutation',
+                        'conclusion',
+                        'transition',
+                        'fluff',
+                      ],
+                      description: '句子修辭與邏輯角色',
+                    },
+                    roleLabelZh: { type: 'STRING', description: '角色中文標籤，例: 主題句、論據事實、因果深入推導、空泛贅句' },
+                    logicQuality: {
+                      type: 'STRING',
+                      enum: ['strong', 'acceptable', 'weak', 'flawed'],
+                      description: '邏輯健全度: strong(有力), acceptable(合理), weak(支撐薄弱), flawed(有推論缺陷/跳躍/冗贅)',
+                    },
+                    critiqueZh: { type: 'STRING', description: '針對該句在段落中扮演角色之精準簡評（繁體中文）' },
+                  },
+                  required: ['sentenceIndex', 'text', 'role', 'roleLabelZh', 'logicQuality', 'critiqueZh'],
+                },
+              },
             },
             required: [
               'paragraphIndex',
@@ -402,6 +438,9 @@ export async function analyzeEssayWithGemini(params: {
    - 逐段指認其角色功能（如：引言/立場宣告、核心論點一、支持論據、讓步反駁、總結）。
    - 檢測該段是否有清楚明確的主題句 (Topic Sentence)。
    - 嚴肅評估該段邏輯鏈條與論據品質：論述扎實 (solid)、論據不足 (weak_evidence)、缺乏明確主題句 (lacks_topic_sentence)、邏輯跳躍/推論不成立 (leap_in_logic)、或偏離題旨 (off_topic)。
+   - **【段內逐句修辭角色剖析 (sentenceBreakdown)】**：
+     - 將該段落內的每一句話獨立切分出來，指明其修辭功能 (hook, thesis, topic_sentence, explanation, evidence, elaboration, counterargument, refutation, conclusion, transition, fluff)。
+     - 判定其邏輯健全度 (strong, acceptable, weak, flawed)，並給予一句精準的繁體中肯短評（例如指出本句提供了具體事實、或是因果斷層、或是無實質內容的空泛陳述）。
    - 具體指出哪句話是空泛陳述或推導不足，並給予務實的補強指南。
 7. 所有修正理由、評語與學習點，務必使用「繁體中文（台灣習慣用語）」撰寫，保持客觀中立。
 `.trim();
@@ -527,6 +566,16 @@ ${essayText}
         logicCritiqueZh: p.logicCritiqueZh || '',
         evidenceQualityZh: p.evidenceQualityZh || '',
         actionableAdviceZh: p.actionableAdviceZh || '',
+        sentenceBreakdown: Array.isArray(p.sentenceBreakdown)
+          ? p.sentenceBreakdown.map((sb: any, sIdx: number) => ({
+              sentenceIndex: sb.sentenceIndex ?? sIdx + 1,
+              text: sb.text || '',
+              role: sb.role || 'explanation',
+              roleLabelZh: sb.roleLabelZh || '論述句',
+              logicQuality: sb.logicQuality || 'acceptable',
+              critiqueZh: sb.critiqueZh || '',
+            }))
+          : undefined,
       })),
     } : undefined,
     sentenceAnalyses: (parsed.sentenceAnalyses || []).map((s: any, idx: number) => ({

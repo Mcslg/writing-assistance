@@ -86,6 +86,28 @@ export interface SummaryFeedback {
 // 篇章架構與論證邏輯分析型別
 export type ArgumentHealth = 'solid' | 'weak_evidence' | 'lacks_topic_sentence' | 'leap_in_logic' | 'off_topic';
 
+export type RhetoricalRole =
+  | 'hook'
+  | 'thesis'
+  | 'topic_sentence'
+  | 'explanation'
+  | 'evidence'
+  | 'elaboration'
+  | 'counterargument'
+  | 'refutation'
+  | 'conclusion'
+  | 'transition'
+  | 'fluff';
+
+export interface SentenceLogicItem {
+  sentenceIndex: number;          // 在該段落內的句子序號 (1, 2, 3...)
+  text: string;                   // 該句原文
+  role: RhetoricalRole;           // 修辭與邏輯角色
+  roleLabelZh: string;            // 例如: '段落核心主題句', '事實/數據例證', '因果深入推導', '讓步反駁', '空泛無效句'
+  logicQuality: 'strong' | 'acceptable' | 'weak' | 'flawed';
+  critiqueZh: string;             // 這句話在段落推展中的作用或邏輯缺陷點評
+}
+
 export interface ParagraphAnalysis {
   paragraphIndex: number;
   originalParagraph: string;
@@ -98,6 +120,7 @@ export interface ParagraphAnalysis {
   logicCritiqueZh: string;       // 邏輯推展深度剖析 (指出該段推論是否充分、有無跳躍或空泛陳述)
   evidenceQualityZh: string;     // 論據/例證品質分析
   actionableAdviceZh: string;    // 具體強化此段論證的行動指南
+  sentenceBreakdown?: SentenceLogicItem[]; // 段落內部逐句修辭角色與推論健全度
 }
 
 export interface StructuralAnalysis {

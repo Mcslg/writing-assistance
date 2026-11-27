@@ -12,7 +12,7 @@ import {
   Compass,
   ArrowRight,
 } from 'lucide-react';
-import { StructuralAnalysis, ArgumentHealth } from '../types/essay';
+import { StructuralAnalysis, ArgumentHealth, RhetoricalRole } from '../types/essay';
 
 interface StructuralAnalysisViewProps {
   structuralAnalysis: StructuralAnalysis;
@@ -48,6 +48,30 @@ const HEALTH_CONFIG: Record<
     badgeClass: 'bg-red-50 text-red-800 border-red-300',
     icon: AlertTriangle,
   },
+};
+
+const ROLE_BADGE_MAP: Record<RhetoricalRole, { label: string; badge: string }> = {
+  hook: { label: '吸引引子 (Hook)', badge: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  thesis: { label: '核心立場 (Thesis)', badge: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  topic_sentence: { label: '段落主題句 (Topic Sentence)', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
+  explanation: { label: '論據闡述 (Explanation)', badge: 'bg-purple-50 text-purple-700 border-purple-200' },
+  evidence: { label: '事實/例證 (Evidence)', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  elaboration: { label: '推論深化 (Elaboration)', badge: 'bg-violet-50 text-violet-700 border-violet-200' },
+  counterargument: { label: '反方論點 (Counterargument)', badge: 'bg-amber-50 text-amber-700 border-amber-200' },
+  refutation: { label: '反駁回應 (Refutation)', badge: 'bg-orange-50 text-orange-700 border-orange-200' },
+  conclusion: { label: '段落小結 (Conclusion)', badge: 'bg-slate-100 text-slate-700 border-slate-300' },
+  transition: { label: '過渡銜接 (Transition)', badge: 'bg-sky-50 text-sky-700 border-sky-200' },
+  fluff: { label: '空泛贅句 (Fluff)', badge: 'bg-rose-50 text-rose-700 border-rose-200' },
+};
+
+const QUALITY_DOT_MAP: Record<
+  'strong' | 'acceptable' | 'weak' | 'flawed',
+  { label: string; dot: string; textClass: string }
+> = {
+  strong: { label: '論證有力', dot: 'bg-emerald-500', textClass: 'text-emerald-700' },
+  acceptable: { label: '推論合理', dot: 'bg-blue-500', textClass: 'text-blue-700' },
+  weak: { label: '支撐偏弱', dot: 'bg-amber-500', textClass: 'text-amber-700' },
+  flawed: { label: '存在推論缺陷/跳躍', dot: 'bg-rose-500', textClass: 'text-rose-700 font-semibold' },
 };
 
 export const StructuralAnalysisView: React.FC<StructuralAnalysisViewProps> = ({
@@ -281,6 +305,65 @@ export const StructuralAnalysisView: React.FC<StructuralAnalysisViewProps> = ({
                         <p className="text-emerald-900 leading-relaxed">{p.actionableAdviceZh}</p>
                       </div>
                     </div>
+
+                    {/* 4. 段落逐句修辭角色與邏輯推移 (Sentence-by-Sentence Flow) */}
+                    {p.sentenceBreakdown && p.sentenceBreakdown.length > 0 && (
+                      <div className="pt-3 border-t border-slate-100 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            <Compass className="w-3.5 h-3.5 text-indigo-600" />
+                            段內逐句修辭角色與推論推移 (共 {p.sentenceBreakdown.length} 句)
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            PEEL / 論證功能拆解
+                          </span>
+                        </div>
+
+                        <div className="space-y-2">
+                          {p.sentenceBreakdown.map((sb) => {
+                            const roleCfg = ROLE_BADGE_MAP[sb.role] || {
+                              label: sb.roleLabelZh || '論述句',
+                              badge: 'bg-slate-100 text-slate-700 border-slate-200',
+                            };
+                            const qualityCfg = QUALITY_DOT_MAP[sb.logicQuality] || QUALITY_DOT_MAP.acceptable;
+
+                            return (
+                              <div
+                                key={sb.sentenceIndex}
+                                className="p-3 rounded-xl bg-slate-50/70 hover:bg-slate-50 border border-slate-200 transition space-y-1.5"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-bold text-indigo-700 bg-indigo-100/70 px-1.5 py-0.5 rounded font-mono">
+                                      S{sb.sentenceIndex}
+                                    </span>
+                                    <span
+                                      className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${roleCfg.badge}`}
+                                    >
+                                      {sb.roleLabelZh || roleCfg.label}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 text-[11px]">
+                                    <span className={`w-2 h-2 rounded-full ${qualityCfg.dot}`} />
+                                    <span className={qualityCfg.textClass}>{qualityCfg.label}</span>
+                                  </div>
+                                </div>
+
+                                <p className="text-xs text-slate-800 font-serif leading-relaxed pl-1">
+                                  "{sb.text}"
+                                </p>
+
+                                <div className="text-[11px] text-slate-500 bg-white p-2 rounded-lg border border-slate-200/60 leading-relaxed flex items-start gap-1.5">
+                                  <span className="text-indigo-600 font-semibold shrink-0">評析:</span>
+                                  <span>{sb.critiqueZh}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {/* 追問助教按鈕 */}
                     {onAskTutorWithParagraph && (
