@@ -204,6 +204,54 @@ const ASSESSMENT_JSON_SCHEMA = {
         required: ['sentenceIndex', 'original', 'improved', 'hasChange', 'explanationZh'],
       },
     },
+    structuralAnalysis: {
+      type: 'OBJECT',
+      description: '篇章邏輯架構分析（Macro-Structure，包含段落角色、主題句識別、論證健康度與邏輯斷層診斷）',
+      properties: {
+        overallStructureScore: { type: 'INTEGER', description: '整體篇章架構與論證邏輯評分 0-100' },
+        structurePattern: { type: 'STRING', description: '文章整體組織模式，例: 經典五段式論說結構、總分總論述結構' },
+        coherenceEvaluationZh: { type: 'STRING', description: '全文篇章連貫性與各段銜接流暢度總評（繁體中文）' },
+        transitionsUsageZh: { type: 'STRING', description: '段落間轉折詞與過渡句運用之客觀分析' },
+        paragraphs: {
+          type: 'ARRAY',
+          description: '依原文自然段落順序逐段剖析',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              paragraphIndex: { type: 'INTEGER', description: '段落編號 (從 1 起算)' },
+              originalParagraph: { type: 'STRING', description: '該段原文文字' },
+              role: { type: 'STRING', description: '英文段落角色，例: Introduction, Body Paragraph 1, Conclusion' },
+              roleZh: { type: 'STRING', description: '繁體中文角色，例: 引言段（背景鋪陳與核心立場）、正方主要論據段' },
+              health: {
+                type: 'STRING',
+                enum: ['solid', 'weak_evidence', 'lacks_topic_sentence', 'leap_in_logic', 'off_topic'],
+                description: '段落邏輯健康度: solid(扎實), weak_evidence(論據薄弱), lacks_topic_sentence(缺乏明確主題句), leap_in_logic(邏輯跳躍/非推論), off_topic(偏離題旨)',
+              },
+              healthLabelZh: { type: 'STRING', description: '健康度簡短標籤，例: 論述扎實、論據不足、缺乏明確主題句' },
+              topicSentence: { type: 'STRING', description: '該段識別出之主題句（若該段無主題句則註明無或指出原因）' },
+              hasClearTopicSentence: { type: 'BOOLEAN', description: '該段是否具備清晰明確的主題句' },
+              logicCritiqueZh: { type: 'STRING', description: '該段邏輯推展剖析（明確指出推論是否成立、哪句話是空泛陳述或邏輯斷層）' },
+              evidenceQualityZh: { type: 'STRING', description: '該段論據、細節或實例的支撐力道評價' },
+              actionableAdviceZh: { type: 'STRING', description: '具體如何改善該段架構與論證說服力的行動建議' },
+            },
+            required: [
+              'paragraphIndex',
+              'originalParagraph',
+              'role',
+              'roleZh',
+              'health',
+              'healthLabelZh',
+              'topicSentence',
+              'hasClearTopicSentence',
+              'logicCritiqueZh',
+              'evidenceQualityZh',
+              'actionableAdviceZh',
+            ],
+          },
+        },
+      },
+      required: ['overallStructureScore', 'structurePattern', 'coherenceEvaluationZh', 'transitionsUsageZh', 'paragraphs'],
+    },
   },
   required: ['title', 'cefrLevel', 'scores', 'improvedText', 'examEstimates', 'wordSuggestions', 'summary'],
 };
@@ -349,7 +397,13 @@ export async function analyzeEssayWithGemini(params: {
 5. 【第五步：isGeneralWord 籠統字嚴格判定準則】
    - 只有當原文用字屬於語義過於泛指、模糊、缺乏具體畫面感的常見籠統字（如 good, bad, get, make, do, thing, big, small, very, nice, fine, happy, stuff, a lot of 等，適合拆解細微語境與多元高級推薦詞）時，才將 isGeneralWord 設為 true。
    - 一般固定搭配詞修正（如 listen to）、介系詞或一般領域用詞，不可設為 true，必須為 false。
-6. 所有修正理由、評語與學習點，務必使用「繁體中文（台灣習慣用語）」撰寫，保持客觀中立。
+6. 【第六步：篇章邏輯與段落架構深度診斷 (structuralAnalysis)】
+   - 按照文章自然段落切分（若作者未按雙換行分段，請依語意核心切分段落）。
+   - 逐段指認其角色功能（如：引言/立場宣告、核心論點一、支持論據、讓步反駁、總結）。
+   - 檢測該段是否有清楚明確的主題句 (Topic Sentence)。
+   - 嚴肅評估該段邏輯鏈條與論據品質：論述扎實 (solid)、論據不足 (weak_evidence)、缺乏明確主題句 (lacks_topic_sentence)、邏輯跳躍/推論不成立 (leap_in_logic)、或偏離題旨 (off_topic)。
+   - 具體指出哪句話是空泛陳述或推導不足，並給予務實的補強指南。
+7. 所有修正理由、評語與學習點，務必使用「繁體中文（台灣習慣用語）」撰寫，保持客觀中立。
 `.trim();
 
   const userPrompt = `
@@ -456,6 +510,25 @@ ${essayText}
       recommendedFocus: parsed.summary?.recommendedFocus || '',
     },
     wordSuggestions,
+    structuralAnalysis: parsed.structuralAnalysis ? {
+      overallStructureScore: Number(parsed.structuralAnalysis.overallStructureScore) || overallScore,
+      structurePattern: parsed.structuralAnalysis.structurePattern || '標準多段落論述結構',
+      coherenceEvaluationZh: parsed.structuralAnalysis.coherenceEvaluationZh || '篇章組織大致合適，段落間推展自然。',
+      transitionsUsageZh: parsed.structuralAnalysis.transitionsUsageZh || '銜接詞使用符合語境。',
+      paragraphs: (parsed.structuralAnalysis.paragraphs || []).map((p: any, idx: number) => ({
+        paragraphIndex: p.paragraphIndex ?? idx + 1,
+        originalParagraph: p.originalParagraph || '',
+        role: p.role || `Paragraph ${idx + 1}`,
+        roleZh: p.roleZh || `第 ${idx + 1} 段`,
+        health: p.health || 'solid',
+        healthLabelZh: p.healthLabelZh || '論述合宜',
+        topicSentence: p.topicSentence || '未明確標出',
+        hasClearTopicSentence: !!p.hasClearTopicSentence,
+        logicCritiqueZh: p.logicCritiqueZh || '',
+        evidenceQualityZh: p.evidenceQualityZh || '',
+        actionableAdviceZh: p.actionableAdviceZh || '',
+      })),
+    } : undefined,
     sentenceAnalyses: (parsed.sentenceAnalyses || []).map((s: any, idx: number) => ({
       sentenceIndex: s.sentenceIndex ?? idx + 1,
       original: s.original || '',

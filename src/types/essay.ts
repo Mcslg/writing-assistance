@@ -83,6 +83,31 @@ export interface SummaryFeedback {
   recommendedFocus: string;
 }
 
+// 篇章架構與論證邏輯分析型別
+export type ArgumentHealth = 'solid' | 'weak_evidence' | 'lacks_topic_sentence' | 'leap_in_logic' | 'off_topic';
+
+export interface ParagraphAnalysis {
+  paragraphIndex: number;
+  originalParagraph: string;
+  role: string;                  // 例如: 'Introduction / Hook & Thesis', 'Body Paragraph 1', 'Conclusion'
+  roleZh: string;                // 例如: '引言段 (背景鋪陳與核心立場)'
+  health: ArgumentHealth;        // 健康度評級
+  healthLabelZh: string;         // 例如: '論述扎實', '論據薄弱', '缺乏明確主題句'
+  topicSentence: string;         // 識別出的主題句 (若無則說明)
+  hasClearTopicSentence: boolean;
+  logicCritiqueZh: string;       // 邏輯推展深度剖析 (指出該段推論是否充分、有無跳躍或空泛陳述)
+  evidenceQualityZh: string;     // 論據/例證品質分析
+  actionableAdviceZh: string;    // 具體強化此段論證的行動指南
+}
+
+export interface StructuralAnalysis {
+  overallStructureScore: number; // 架構與邏輯分 (0 - 100)
+  structurePattern: string;      // 例如: '經典五段式論說結構', '三段式記敘反思結構'
+  coherenceEvaluationZh: string; // 整體篇章組織與論點連貫性評價
+  transitionsUsageZh: string;    // 段落過渡與銜接詞運用評估
+  paragraphs: ParagraphAnalysis[];
+}
+
 export interface EssayAssessment {
   id: string;
   title: string;
@@ -96,6 +121,7 @@ export interface EssayAssessment {
   wordSuggestions: WordLevelSuggestion[]; // 字級/片語級建議
   sentenceAnalyses: SentenceAnalysis[];   // 逐句解析
   examEstimates?: ExamEstimates;          // 各大英文考試換算估分
+  structuralAnalysis?: StructuralAnalysis; // 篇章架構與邏輯分析
   wordCount: {
     original: number;
     improved: number;

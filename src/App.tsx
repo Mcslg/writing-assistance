@@ -12,6 +12,7 @@ import { AssessmentReport } from './components/AssessmentReport';
 import { DiffViewer } from './components/DiffViewer';
 import { SentenceAnalysisList } from './components/SentenceAnalysisList';
 import { PortfolioReportModal } from './components/PortfolioReportModal';
+import { StructuralAnalysisView } from './components/StructuralAnalysisView';
 
 import {
   EssayAssessment,
@@ -34,7 +35,7 @@ import {
 } from './services/storageService';
 
 import { analyzeEssayWithGemini, generatePortfolioReport } from './services/geminiService';
-import { Bot, RefreshCw, AlertCircle, ListChecks, ChevronDown, ChevronUp } from 'lucide-react';
+import { Bot, RefreshCw, AlertCircle, ListChecks, ChevronDown, ChevronUp, Compass, PenTool } from 'lucide-react';
 
 export default function App() {
   // Settings & Modals state
@@ -48,6 +49,7 @@ export default function App() {
   const [currentAssessment, setCurrentAssessment] = useState<EssayAssessment | null>(null);
   const [focusedSentence, setFocusedSentence] = useState<string | null>(null);
   const [textMode, setTextMode] = useState<'input' | 'review'>('input');
+  const [reviewSubTab, setReviewSubTab] = useState<'micro' | 'macro'>('micro');
   const [currentWorkingText, setCurrentWorkingText] = useState<string>('');
   const [showSentenceList, setShowSentenceList] = useState(false);
 
@@ -115,6 +117,7 @@ export default function App() {
       setCurrentAssessment(assessment);
       setCurrentWorkingText(text);
       setTextMode('review');
+      setReviewSubTab('micro');
       await saveAssessmentToDB(assessment);
 
       // 更新歷史列表
@@ -233,6 +236,7 @@ export default function App() {
     setFocusedSentence(null);
     setErrorMessage(null);
     setTextMode('input');
+    setReviewSubTab('micro');
     setCurrentWorkingText('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -275,23 +279,54 @@ export default function App() {
             <div>
               <h2 className="text-base font-bold text-slate-800">
                 {currentAssessment && textMode === 'review'
-                  ? '英文作文審閱與浮動建議'
+                  ? '英文作文深度診斷與修訂'
                   : '英文作文輸入'}
               </h2>
               <p className="text-xs text-slate-500">
                 {currentAssessment && textMode === 'review'
-                  ? '點選文中標有波浪底線的句子，浮動視窗將顯示精確修正原因、替代說法與一鍵採納'
+                  ? reviewSubTab === 'micro'
+                    ? '點選文中標有波浪底線的字詞，浮動視窗將顯示精確修正原因、替代說法與一鍵採納'
+                    : '檢視各段落功能定位、主題句明確度與邏輯論證鏈條是否扎實'
                   : '貼上欲改善的文章，AI 將依據選定的目標進行語法診斷與高階潤飾'}
               </p>
             </div>
             <div className="flex items-center gap-2">
+              {currentAssessment && textMode === 'review' && (
+                <div className="flex items-center p-1 bg-slate-200/70 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setReviewSubTab('micro')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                      reviewSubTab === 'micro'
+                        ? 'bg-white text-indigo-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <PenTool className="w-3.5 h-3.5" />
+                    <span>文法字詞精修 (Micro)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReviewSubTab('macro')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                      reviewSubTab === 'macro'
+                        ? 'bg-white text-indigo-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Compass className="w-3.5 h-3.5" />
+                    <span>篇章邏輯架構 (Macro)</span>
+                  </button>
+                </div>
+              )}
+
               {currentAssessment && textMode === 'input' && (
                 <button
                   type="button"
                   onClick={() => setTextMode('review')}
                   className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition flex items-center gap-1"
                 >
-                  返回審閱浮動視窗
+                  返回審閱視窗
                 </button>
               )}
               {currentAssessment && (
@@ -307,17 +342,35 @@ export default function App() {
           </div>
 
           {currentAssessment && textMode === 'review' ? (
-            <InteractiveAnnotatedEditor
-              originalText={currentWorkingText || currentAssessment.originalText}
-              wordSuggestions={currentAssessment.wordSuggestions || []}
-              settings={settings}
-              onApplyAllChanges={(updated) => setCurrentWorkingText(updated)}
-              onAskTutor={(query) => {
-                setFocusedSentence(query);
-                setIsChatOpen(true);
-              }}
-              onSwitchToEdit={() => setTextMode('input')}
-            />
+            reviewSubTab === 'micro' ? (
+              <InteractiveAnnotatedEditor
+                originalText={currentWorkingText || currentAssessment.originalText}
+                wordSuggestions={currentAssessment.wordSuggestions || []}
+                settings={settings}
+                onApplyAllChanges={(updated) => setCurrentWorkingText(updated)}
+                onAskTutor={(query) => {
+                  setFocusedSentence(query);
+                  setIsChatOpen(true);
+                }}
+                onSwitchToEdit={() => setTextMode('input')}
+              />
+            ) : currentAssessment.structuralAnalysis ? (
+              <StructuralAnalysisView
+                structuralAnalysis={currentAssessment.structuralAnalysis}
+                onAskTutorWithParagraph={(para, note) => {
+                  setFocusedSentence(`【針對段落】\n"${para}"\n\n【討論重點】\n${note}`);
+                  setIsChatOpen(true);
+                }}
+              />
+            ) : (
+              <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-3">
+                <Compass className="w-8 h-8 text-slate-400 mx-auto" />
+                <h3 className="font-bold text-slate-700 text-sm">此筆歷史文章尚未建立篇章架構資料</h3>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  此文章為先前版本批改，若需進行主題句檢測與論據深度剖析，可重新點擊「撰寫新篇章」並貼上此文再次批改。
+                </p>
+              </div>
+            )
           ) : (
             <EssayInputArea
               initialText={currentWorkingText || (currentAssessment ? currentAssessment.originalText : '')}
